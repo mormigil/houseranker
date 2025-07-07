@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer-core'
-import chromium from 'chrome-aws-lambda'
+import chromium from '@sparticuz/chromium'
 
 export interface ScrapingOptions {
   extractImages: boolean
@@ -21,11 +21,11 @@ export async function scrapeWithPuppeteer(options: ScrapingOptions): Promise<Scr
   let browser = null
   
   try {
-    // Launch browser with chrome-aws-lambda for better compatibility
+    // Launch browser with @sparticuz/chromium for better compatibility
     browser = await puppeteer.launch({
       args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath,
+      executablePath: await chromium.executablePath(),
       headless: chromium.headless,
       ignoreHTTPSErrors: true,
     })
