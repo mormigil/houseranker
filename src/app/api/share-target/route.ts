@@ -10,9 +10,8 @@ export async function POST(request: NextRequest) {
     const title = formData.get('title') as string || ''
     const text = formData.get('text') as string || ''
     const url = formData.get('url') as string || ''
-    const files = formData.getAll('files') as File[]
     
-    console.log('Shared data:', { title, text, url, filesCount: files.length })
+    console.log('Shared data:', { title, text, url })
     
     // Parse property data from shared content
     const propertyData = parseSharedPropertyData({ title, text, url })

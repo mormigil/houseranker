@@ -18,12 +18,11 @@
   "share_target": {
     "action": "/api/share-target",
     "method": "POST",
-    "enctype": "multipart/form-data",
+    "enctype": "application/x-www-form-urlencoded",
     "params": {
       "title": "title",
       "text": "text",
-      "url": "url",
-      "files": "files"
+      "url": "url"
     }
   },
   "shortcuts": [
