@@ -1,0 +1,6 @@
+
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#3b82f6"/>
+  <path d="M128 256L256 128L384 256V384H320V320H192V384H128V256Z" fill="white" stroke="white" stroke-width="8"/>
+  <text x="256" y="450" text-anchor="middle" fill="white" font-family="Arial" font-size="32" font-weight="bold">HR</text>
+</svg>

@@ -1,0 +1,6 @@
+address,title,description,price,image_url,listing_url
+"123 Main Street, Anytown USA",Beautiful Colonial Home,"Stunning 4BR/3BA colonial in prime location. Recently updated kitchen and baths.",650000,https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800,https://example.com/listing1
+"456 Oak Avenue, Somewhere City",Modern Townhouse,"Contemporary 3BR/2.5BA townhouse with garage. Perfect for first-time buyers.",425000,https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800,https://example.com/listing2
+"789 Pine Road, Neighborhood",Charming Ranch,"Single-level living at its finest. 2BR/2BA with large backyard.",385000,https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?w=800,https://example.com/listing3
+"321 Elm Street, Downtown",Luxury Condo,"High-rise living with city views. 2BR/2BA with amenities.",580000,https://images.unsplash.com/photo-1600573472550-8090b5e0745e?w=800,https://example.com/listing4
+"654 Maple Drive, Suburbs",Family Home,"Spacious 5BR/3.5BA perfect for large families. Great schools nearby.",750000,https://images.unsplash.com/photo-1600047509358-9dc75507daeb?w=800,https://example.com/listing5

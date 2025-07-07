@@ -1,0 +1,178 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { validateApiKey } from '@/lib/auth'
+
+export async function POST(request: NextRequest) {
+  try {
+    console.log('Share target received data')
+    
+    // Parse form data from share intent
+    const formData = await request.formData()
+    
+    const title = formData.get('title') as string || ''
+    const text = formData.get('text') as string || ''
+    const url = formData.get('url') as string || ''
+    const files = formData.getAll('files') as File[]
+    
+    console.log('Shared data:', { title, text, url, filesCount: files.length })
+    
+    // Parse property data from shared content
+    const propertyData = parseSharedPropertyData({ title, text, url })
+    
+    // Try to extract images from the shared URL
+    let imageUrl = ''
+    if (url && isRealEstateUrl(url)) {
+      try {
+        console.log('Attempting to extract images from:', url)
+        
+        // Use simple fetch for Open Graph images (more reliable for share workflow)
+        const imageFromOG = await extractOpenGraphImage(url)
+        if (imageFromOG) {
+          imageUrl = imageFromOG
+          console.log('Extracted image via Open Graph:', imageUrl)
+        }
+        
+      } catch (error) {
+        console.log('Image extraction failed:', error)
+        // Continue without image - not a critical failure
+      }
+    }
+    
+    // Store the shared data temporarily (you could use a database or session)
+    // For now, we'll redirect to the import page with the data as URL params
+    const searchParams = new URLSearchParams()
+    
+    if (propertyData.title) searchParams.set('title', propertyData.title)
+    if (propertyData.address) searchParams.set('address', propertyData.address)
+    if (propertyData.price) searchParams.set('price', propertyData.price.toString())
+    if (propertyData.description) searchParams.set('description', propertyData.description)
+    if (url) searchParams.set('listing_url', url)
+    if (imageUrl) searchParams.set('image_url', imageUrl)
+    
+    // Set a flag to indicate this came from share
+    searchParams.set('from_share', 'true')
+    
+    // Redirect to the manage page with pre-filled data
+    const redirectUrl = `/manage?${searchParams.toString()}`
+    
+    return NextResponse.redirect(new URL(redirectUrl, request.url))
+    
+  } catch (error) {
+    console.error('Share target error:', error)
+    
+    // Fallback: redirect to manage page without data
+    return NextResponse.redirect(new URL('/manage', request.url))
+  }
+}
+
+function parseSharedPropertyData(shared: { title: string, text: string, url: string }) {
+  const result = {
+    title: '',
+    address: '',
+    price: null as number | null,
+    description: ''
+  }
+  
+  // Extract from URL first (most reliable)
+  if (shared.url) {
+    // Extract address from Compass URL structure
+    const compassMatch = shared.url.match(/\/listing\/([^\/]+)/)
+    if (compassMatch) {
+      const urlSlug = compassMatch[1]
+      // Convert URL slug to readable address
+      result.address = urlSlug
+        .split('-')
+        .slice(0, -1) // Remove the ID at the end
+        .join(' ')
+        .replace(/\b\w/g, l => l.toUpperCase()) // Title case
+    }
+  }
+  
+  // Parse shared text for property details
+  const combinedText = `${shared.title} ${shared.text}`.trim()
+  
+  if (combinedText) {
+    // Extract title (usually the first line or before price)
+    const lines = combinedText.split('\n').filter(line => line.trim())
+    if (lines.length > 0) {
+      result.title = lines[0].trim()
+    }
+    
+    // Extract price
+    const priceMatch = combinedText.match(/\$[\d,]+/)
+    if (priceMatch) {
+      result.price = parseInt(priceMatch[0].replace(/[$,]/g, ''))
+    }
+    
+    // Extract address if not found in URL
+    if (!result.address) {
+      const addressMatch = combinedText.match(/(\d+[^,\n]*(?:street|st|avenue|ave|boulevard|blvd|road|rd|drive|dr|lane|ln|court|ct|place|pl|way)[^,\n]*)/i)
+      if (addressMatch) {
+        result.address = addressMatch[1].trim()
+      }
+    }
+    
+    // Use remaining text as description
+    result.description = combinedText
+  }
+  
+  return result
+}
+
+function isRealEstateUrl(url: string): boolean {
+  return /compass\.com|zillow\.com|redfin\.com|realtor\.com|trulia\.com/i.test(url)
+}
+
+async function extractOpenGraphImage(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(10000) // 10 second timeout
+    })
+    
+    if (!response.ok) {
+      return null
+    }
+    
+    const html = await response.text()
+    
+    // Extract Open Graph image
+    const ogImageMatch = html.match(/<meta[^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i)
+    if (ogImageMatch) {
+      let imageUrl = ogImageMatch[1]
+      
+      // Convert relative URLs to absolute
+      if (imageUrl.startsWith('//')) {
+        imageUrl = 'https:' + imageUrl
+      } else if (imageUrl.startsWith('/')) {
+        const urlObj = new URL(url)
+        imageUrl = urlObj.origin + imageUrl
+      }
+      
+      return imageUrl
+    }
+    
+    // Fallback: look for Twitter card image
+    const twitterImageMatch = html.match(/<meta[^>]*name=["\']twitter:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i)
+    if (twitterImageMatch) {
+      let imageUrl = twitterImageMatch[1]
+      
+      if (imageUrl.startsWith('//')) {
+        imageUrl = 'https:' + imageUrl
+      } else if (imageUrl.startsWith('/')) {
+        const urlObj = new URL(url)
+        imageUrl = urlObj.origin + imageUrl
+      }
+      
+      return imageUrl
+    }
+    
+    return null
+    
+  } catch (error) {
+    console.log('Open Graph extraction failed:', error)
+    return null
+  }
+}

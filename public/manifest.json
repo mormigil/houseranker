@@ -1,0 +1,55 @@
+{
+  "name": "House Ranker",
+  "short_name": "HouseRanker",
+  "description": "Rank and compare houses during your house hunt using binary search",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "share_target": {
+    "action": "/api/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": "files"
+    }
+  },
+  "shortcuts": [
+    {
+      "name": "Add Property",
+      "short_name": "Add",
+      "description": "Add a new property to rank",
+      "url": "/manage?action=add",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any"
+        }
+      ]
+    },
+    {
+      "name": "Start Ranking",
+      "short_name": "Rank",
+      "description": "Start ranking your properties",
+      "url": "/rank",
+      "icons": [
+        {
+          "src": "/icon.svg",
+          "sizes": "any"
+        }
+      ]
+    }
+  ]
+}
