@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { validateApiKey } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,14 +52,16 @@ export async function POST(request: NextRequest) {
     
     // Redirect to the manage page with pre-filled data
     const redirectUrl = `/manage?${searchParams.toString()}`
+    const baseUrl = new URL(request.url).origin
     
-    return NextResponse.redirect(new URL(redirectUrl, request.url))
+    return NextResponse.redirect(new URL(redirectUrl, baseUrl))
     
   } catch (error) {
     console.error('Share target error:', error)
     
     // Fallback: redirect to manage page without data
-    return NextResponse.redirect(new URL('/manage', request.url))
+    const baseUrl = new URL(request.url).origin
+    return NextResponse.redirect(new URL('/manage', baseUrl))
   }
 }
 
