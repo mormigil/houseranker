@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export async function GET(request: NextRequest) {
+  return NextResponse.json({
+    message: 'Share target endpoint is working',
+    method: 'GET',
+    timestamp: new Date().toISOString()
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
     console.log('Share target received data')
@@ -7,11 +15,22 @@ export async function POST(request: NextRequest) {
     // Parse form data from share intent
     const formData = await request.formData()
     
-    const title = formData.get('title') as string || ''
-    const text = formData.get('text') as string || ''
-    const url = formData.get('url') as string || ''
+    // Extract data from form
+    let title = formData.get('title') as string || ''
+    let text = formData.get('text') as string || ''
+    let url = formData.get('url') as string || ''
     
-    console.log('Shared data:', { title, text, url })
+    // Fix for Compass: URL is often in the text field, not url field
+    if (!url && text) {
+      const urlMatch = text.match(/(https?:\/\/[^\s]+)/);
+      if (urlMatch) {
+        url = urlMatch[1];
+        // Remove the URL from text to clean it up
+        text = text.replace(urlMatch[0], '').trim();
+      }
+    }
+    
+    console.log('Extracted data:', { title, text, url })
     
     // Parse property data from shared content
     const propertyData = parseSharedPropertyData({ title, text, url })
@@ -51,16 +70,29 @@ export async function POST(request: NextRequest) {
     
     // Redirect to the manage page with pre-filled data
     const redirectUrl = `/manage?${searchParams.toString()}`
-    const baseUrl = new URL(request.url).origin
     
-    return NextResponse.redirect(new URL(redirectUrl, baseUrl))
+    try {
+      const baseUrl = new URL(request.url).origin
+      return NextResponse.redirect(new URL(redirectUrl, baseUrl))
+    } catch (urlError) {
+      console.error('URL construction error:', urlError)
+      // Fallback to simple redirect
+      return NextResponse.redirect(`https://houseranker.vercel.app${redirectUrl}`)
+    }
     
   } catch (error) {
     console.error('Share target error:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
     
-    // Fallback: redirect to manage page without data
-    const baseUrl = new URL(request.url).origin
-    return NextResponse.redirect(new URL('/manage', baseUrl))
+    // Return a proper error response for debugging
+    return NextResponse.json(
+      { 
+        error: 'Share target failed', 
+        message: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      }, 
+      { status: 500 }
+    )
   }
 }
 
