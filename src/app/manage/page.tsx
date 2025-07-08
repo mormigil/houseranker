@@ -91,14 +91,19 @@ export default function ManagePage() {
     }
     
     // Check for duplicates based on title, image URL, or similar address
+    console.log('Checking for duplicates. Current houses:', houses.map(h => h.title))
+    console.log('New house title:', newHouse.title)
+    
     const isDuplicate = houses.some(house => {
       // Check exact title match
       if (house.title.toLowerCase() === newHouse.title.toLowerCase()) {
+        console.log('Found duplicate title:', house.title)
         return true
       }
       // Check image URL match
       if (newHouse.image_url && house.image_url && 
           house.image_url === newHouse.image_url) {
+        console.log('Found duplicate image URL:', house.image_url)
         return true
       }
       return false

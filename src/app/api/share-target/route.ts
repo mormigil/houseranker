@@ -144,7 +144,10 @@ function parseSharedPropertyData(shared: { title: string, text: string, url: str
     // Extract title (usually the first line or before price)
     const lines = combinedText.split('\n').filter(line => line.trim())
     if (lines.length > 0) {
-      result.title = lines[0].trim()
+      let title = lines[0].trim()
+      // Filter out common sharing phrases from title too
+      title = title.replace(/Check out this Compass listing\.?/gi, '').trim()
+      result.title = title
     }
     
     // Extract price
