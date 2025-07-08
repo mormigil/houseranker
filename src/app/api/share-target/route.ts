@@ -41,22 +41,26 @@ export async function POST(request: NextRequest) {
     // Parse property data from shared content
     const propertyData = parseSharedPropertyData({ title, text, url })
     
-    // Try to extract images from the shared URL
+    // Try to extract images and additional details from the shared URL
     let imageUrl = ''
+    let additionalDetails = null
     if (url && isRealEstateUrl(url)) {
       try {
-        console.log('Attempting to extract images from:', url)
+        console.log('Attempting to extract data from:', url)
         
-        // Use simple fetch for Open Graph images (more reliable for share workflow)
-        const imageFromOG = await extractOpenGraphImage(url)
-        if (imageFromOG) {
-          imageUrl = imageFromOG
+        const pageData = await extractPropertyData(url)
+        if (pageData.imageUrl) {
+          imageUrl = pageData.imageUrl
           console.log('Extracted image via Open Graph:', imageUrl)
+        }
+        if (pageData.details) {
+          additionalDetails = pageData.details
+          console.log('Extracted additional details:', additionalDetails)
         }
         
       } catch (error) {
-        console.log('Image extraction failed:', error)
-        // Continue without image - not a critical failure
+        console.log('Data extraction failed:', error)
+        // Continue without additional data - not a critical failure
       }
     }
     
@@ -74,8 +78,33 @@ export async function POST(request: NextRequest) {
     if (propertyData.price && propertyData.price !== null) {
       searchParams.set('price', propertyData.price.toString())
     }
-    if (propertyData.description && propertyData.description !== 'null') {
-      searchParams.set('description', propertyData.description.substring(0, 300))
+    // Enhance description with additional details if available
+    let enhancedDescription = propertyData.description || ''
+    if (additionalDetails) {
+      const extraInfo = []
+      
+      if (additionalDetails.sqft) {
+        extraInfo.push(`${additionalDetails.sqft.toLocaleString()} sqft`)
+      }
+      if (additionalDetails.lotSize) {
+        extraInfo.push(`${additionalDetails.lotSize} acres`)
+      }
+      if (additionalDetails.yearBuilt) {
+        extraInfo.push(`Built ${additionalDetails.yearBuilt}`)
+      }
+      if (additionalDetails.description && additionalDetails.description !== enhancedDescription) {
+        extraInfo.push(additionalDetails.description)
+      }
+      
+      if (extraInfo.length > 0) {
+        enhancedDescription = enhancedDescription ? 
+          `${enhancedDescription}\n\n${extraInfo.join(' • ')}` : 
+          extraInfo.join(' • ')
+      }
+    }
+    
+    if (enhancedDescription && enhancedDescription !== 'null') {
+      searchParams.set('description', enhancedDescription.substring(0, 500))
     }
     if (url && url !== 'null') {
       searchParams.set('listing_url', url)
@@ -183,7 +212,7 @@ function isRealEstateUrl(url: string): boolean {
   return /compass\.com|zillow\.com|redfin\.com|realtor\.com|trulia\.com/i.test(url)
 }
 
-async function extractOpenGraphImage(url: string): Promise<string | null> {
+async function extractPropertyData(url: string): Promise<{ imageUrl: string | null, details: any | null }> {
   try {
     const response = await fetch(url, {
       headers: {
@@ -194,15 +223,16 @@ async function extractOpenGraphImage(url: string): Promise<string | null> {
     })
     
     if (!response.ok) {
-      return null
+      return { imageUrl: null, details: null }
     }
     
     const html = await response.text()
     
     // Extract Open Graph image
+    let imageUrl = null
     const ogImageMatch = html.match(/<meta[^>]*property=["\']og:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i)
     if (ogImageMatch) {
-      let imageUrl = ogImageMatch[1]
+      imageUrl = ogImageMatch[1]
       
       // Convert relative URLs to absolute
       if (imageUrl.startsWith('//')) {
@@ -211,29 +241,103 @@ async function extractOpenGraphImage(url: string): Promise<string | null> {
         const urlObj = new URL(url)
         imageUrl = urlObj.origin + imageUrl
       }
-      
-      return imageUrl
     }
     
     // Fallback: look for Twitter card image
-    const twitterImageMatch = html.match(/<meta[^>]*name=["\']twitter:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i)
-    if (twitterImageMatch) {
-      let imageUrl = twitterImageMatch[1]
-      
-      if (imageUrl.startsWith('//')) {
-        imageUrl = 'https:' + imageUrl
-      } else if (imageUrl.startsWith('/')) {
-        const urlObj = new URL(url)
-        imageUrl = urlObj.origin + imageUrl
+    if (!imageUrl) {
+      const twitterImageMatch = html.match(/<meta[^>]*name=["\']twitter:image["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i)
+      if (twitterImageMatch) {
+        imageUrl = twitterImageMatch[1]
+        
+        if (imageUrl.startsWith('//')) {
+          imageUrl = 'https:' + imageUrl
+        } else if (imageUrl.startsWith('/')) {
+          const urlObj = new URL(url)
+          imageUrl = urlObj.origin + imageUrl
+        }
       }
-      
-      return imageUrl
     }
     
-    return null
+    // Extract additional property details from the HTML
+    const details: any = {}
+    console.log('HTML length:', html.length, 'characters')
+    
+    // Try to extract structured data (JSON-LD)
+    const jsonLdMatches = html.match(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>(.*?)<\/script>/gis)
+    if (jsonLdMatches) {
+      console.log('Found', jsonLdMatches.length, 'JSON-LD scripts')
+      jsonLdMatches.forEach((match, index) => {
+        try {
+          const jsonContent = match.match(/<script[^>]*type=["\']application\/ld\+json["\'][^>]*>(.*?)<\/script>/is)
+          if (jsonContent) {
+            const jsonData = JSON.parse(jsonContent[1])
+            console.log(`JSON-LD ${index}:`, JSON.stringify(jsonData, null, 2))
+            if (jsonData['@type'] === 'RealEstateListing' || jsonData.name || jsonData.description) {
+              details.structuredData = jsonData
+            }
+          }
+        } catch (e) {
+          console.log(`JSON-LD ${index} parsing error:`, e)
+        }
+      })
+    } else {
+      console.log('No JSON-LD scripts found')
+    }
+    
+    // Extract Open Graph description
+    const ogDescMatch = html.match(/<meta[^>]*property=["\']og:description["\'][^>]*content=["\']([^"\']+)["\'][^>]*>/i)
+    if (ogDescMatch) {
+      console.log('Open Graph description found:', ogDescMatch[1])
+      details.description = ogDescMatch[1]
+    } else {
+      console.log('No Open Graph description found')
+    }
+    
+    // Extract all Open Graph meta tags for debugging
+    const ogTags = html.match(/<meta[^>]*property=["\']og:[^"\']+["\'][^>]*>/gi)
+    if (ogTags) {
+      console.log('All Open Graph tags found:')
+      ogTags.forEach(tag => console.log('  ', tag))
+    }
+    
+    // Look for common property detail patterns in the HTML
+    // Square footage
+    const sqftMatch = html.match(/(\d{1,3}(?:,\d{3})*)\s*(?:sq\.?\s*ft|sqft|square\s*feet)/i)
+    if (sqftMatch) {
+      console.log('Square footage found:', sqftMatch[1])
+      details.sqft = parseInt(sqftMatch[1].replace(/,/g, ''))
+    } else {
+      console.log('No square footage pattern found')
+    }
+    
+    // Lot size
+    const lotMatch = html.match(/(\d+(?:\.\d+)?)\s*(?:acres?|ac)\b/i)
+    if (lotMatch) {
+      console.log('Lot size found:', lotMatch[1])
+      details.lotSize = parseFloat(lotMatch[1])
+    } else {
+      console.log('No lot size pattern found')
+    }
+    
+    // Year built
+    const yearMatch = html.match(/(?:built|year)\s*(?:in\s*)?(\d{4})/i)
+    if (yearMatch) {
+      console.log('Year built found:', yearMatch[1])
+      details.yearBuilt = parseInt(yearMatch[1])
+    } else {
+      console.log('No year built pattern found')
+    }
+    
+    const result = { 
+      imageUrl, 
+      details: Object.keys(details).length > 0 ? details : null 
+    }
+    
+    console.log('Final extraction result:', JSON.stringify(result, null, 2))
+    return result
     
   } catch (error) {
-    console.log('Open Graph extraction failed:', error)
-    return null
+    console.log('Property data extraction failed:', error)
+    return { imageUrl: null, details: null }
   }
 }
