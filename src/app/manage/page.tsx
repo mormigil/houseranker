@@ -43,7 +43,8 @@ export default function ManagePage() {
       setShowAddForm(true)
       
       // Clean up URL params
-      window.history.replaceState({}, '', '/manage')
+      const newUrl = new URL('/manage', window.location.origin)
+      window.history.replaceState({}, 'Manage Houses', newUrl.toString())
     }
   }, [])
 
