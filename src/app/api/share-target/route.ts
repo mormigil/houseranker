@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import Anthropic from '@anthropic-ai/sdk'
 
 export async function GET(request: NextRequest) {
   return NextResponse.json({
@@ -78,9 +79,14 @@ export async function POST(request: NextRequest) {
     if (propertyData.price && propertyData.price !== null) {
       searchParams.set('price', propertyData.price.toString())
     }
-    // Enhance description with additional details if available
-    let enhancedDescription = propertyData.description || ''
-    if (additionalDetails) {
+    // Use LLM summary if available, otherwise fall back to enhanced description
+    let finalDescription = propertyData.description || ''
+    
+    if (additionalDetails?.llmSummary) {
+      finalDescription = additionalDetails.llmSummary
+      console.log('Using LLM summary as description')
+    } else if (additionalDetails) {
+      // Fallback to enhanced description if LLM failed
       const extraInfo = []
       
       if (additionalDetails.sqft) {
@@ -92,19 +98,20 @@ export async function POST(request: NextRequest) {
       if (additionalDetails.yearBuilt) {
         extraInfo.push(`Built ${additionalDetails.yearBuilt}`)
       }
-      if (additionalDetails.description && additionalDetails.description !== enhancedDescription) {
+      if (additionalDetails.description && additionalDetails.description !== finalDescription) {
         extraInfo.push(additionalDetails.description)
       }
       
       if (extraInfo.length > 0) {
-        enhancedDescription = enhancedDescription ? 
-          `${enhancedDescription}\n\n${extraInfo.join(' • ')}` : 
+        finalDescription = finalDescription ? 
+          `${finalDescription}\n\n${extraInfo.join(' • ')}` : 
           extraInfo.join(' • ')
       }
+      console.log('Using fallback enhanced description')
     }
     
-    if (enhancedDescription && enhancedDescription !== 'null') {
-      searchParams.set('description', enhancedDescription.substring(0, 500))
+    if (finalDescription && finalDescription !== 'null') {
+      searchParams.set('description', finalDescription.substring(0, 500))
     }
     if (url && url !== 'null') {
       searchParams.set('listing_url', url)
@@ -272,7 +279,45 @@ async function extractPropertyData(url: string): Promise<{ imageUrl: string | nu
           if (jsonContent) {
             const jsonData = JSON.parse(jsonContent[1])
             console.log(`JSON-LD ${index}:`, JSON.stringify(jsonData, null, 2))
-            if (jsonData['@type'] === 'RealEstateListing' || jsonData.name || jsonData.description) {
+            
+            // Extract from Compass structured data
+            if (Array.isArray(jsonData['@graph'])) {
+              const listing = jsonData['@graph'].find((item: any) => 
+                item['@type']?.includes('RealEstateListing') || 
+                item['@type']?.includes('SingleFamilyResidence')
+              )
+              
+              if (listing) {
+                console.log('Found real estate listing in JSON-LD')
+                
+                // Extract floor plan data
+                if (listing.accommodationFloorPlan) {
+                  details.floorPlan = {
+                    beds: listing.accommodationFloorPlan.numberOfBedrooms,
+                    baths: listing.accommodationFloorPlan.numberOfBathroomsTotal,
+                    sqft: listing.floorSize?.[0]?.value ? 
+                      parseInt(listing.floorSize[0].value.replace(/[,\s]/g, '')) : null
+                  }
+                }
+                
+                // Extract amenities
+                if (listing.amenityFeature?.length > 0) {
+                  details.amenities = listing.amenityFeature.map((amenity: any) => amenity.name)
+                }
+                
+                // Extract speakable description
+                if (listing.speakable) {
+                  details.speakable = listing.speakable
+                }
+                
+                // Extract neighborhood from address
+                if (listing.address?.addressLocality) {
+                  details.neighborhood = listing.address.addressLocality
+                }
+                
+                details.structuredData = listing
+              }
+            } else if (jsonData['@type'] === 'RealEstateListing' || jsonData.name || jsonData.description) {
               details.structuredData = jsonData
             }
           }
@@ -333,11 +378,85 @@ async function extractPropertyData(url: string): Promise<{ imageUrl: string | nu
       details: Object.keys(details).length > 0 ? details : null 
     }
     
+    // If we have rich structured data, create LLM summary
+    if (details.floorPlan || details.amenities || details.speakable) {
+      console.log('Creating LLM summary from structured data')
+      try {
+        const summary = await createPropertySummary(details)
+        if (summary) {
+          details.llmSummary = summary
+          console.log('LLM summary created:', summary)
+        }
+      } catch (error) {
+        console.log('LLM summary failed:', error)
+      }
+    }
+    
     console.log('Final extraction result:', JSON.stringify(result, null, 2))
     return result
     
   } catch (error) {
     console.log('Property data extraction failed:', error)
     return { imageUrl: null, details: null }
+  }
+}
+
+async function createPropertySummary(details: any): Promise<string | null> {
+  try {
+    // Only call LLM if we have structured data
+    if (!details.structuredData) {
+      return null
+    }
+
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    })
+
+    // Create minimized JSON with just the key fields
+    const minimalData = {
+      floorPlan: details.structuredData.accommodationFloorPlan ? {
+        beds: details.structuredData.accommodationFloorPlan.numberOfBedrooms,
+        baths: details.structuredData.accommodationFloorPlan.numberOfBathroomsTotal,
+        sqft: details.structuredData.floorSize?.[0]?.value
+      } : null,
+      amenities: details.structuredData.amenityFeature?.map((a: any) => a.name) || [],
+      description: details.structuredData.speakable || details.structuredData.description,
+      neighborhood: details.structuredData.address?.addressLocality,
+      price: details.structuredData.offers?.price
+    }
+
+    console.log('Calling Anthropic API with minimal data:', JSON.stringify(minimalData, null, 2))
+
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 100,
+      temperature: 0.7,
+      system: "You will receive information about a property listing. Respond only with a 280 char or less low emotion summary of the listing. Focus on key features, unique elements, and neighborhood information.",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(minimalData)
+            }
+          ]
+        }
+      ]
+    })
+
+    const summary = msg.content[0]?.type === 'text' ? msg.content[0].text : null
+    console.log('Anthropic API response:', summary)
+    
+    // Ensure it's under 280 characters
+    if (summary && summary.length > 280) {
+      return summary.substring(0, 277) + '...'
+    }
+    
+    return summary
+
+  } catch (error) {
+    console.log('Anthropic API call failed:', error)
+    return null
   }
 }
