@@ -214,7 +214,7 @@ export default function ManagePage() {
               Add New House
             </h2>
             
-            <form onSubmit={handleAddHouse} action="#" method="post" className="space-y-4">
+            <form onSubmit={handleAddHouse} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Title *

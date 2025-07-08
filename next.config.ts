@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  images: {
+    domains: ['www.compass.com', 'compass.com'],
+  },
   webpack: (config) => {
     // Ignore source map files from chrome-aws-lambda
     config.module.rules.push({
