@@ -429,9 +429,9 @@ async function createPropertySummary(details: any): Promise<string | null> {
 
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 100,
+      max_tokens: 200,
       temperature: 0.7,
-      system: "You will receive information about a property listing. Respond only with a 280 char or less low emotion summary of the listing. Focus on key features, unique elements, and neighborhood information.",
+      system: "You will receive information about a property listing. Respond only with a concise, low emotion summary of the listing (under 400 characters). Focus on key features, unique elements, and neighborhood information.",
       messages: [
         {
           role: "user",
@@ -448,9 +448,9 @@ async function createPropertySummary(details: any): Promise<string | null> {
     const summary = msg.content[0]?.type === 'text' ? msg.content[0].text : null
     console.log('Anthropic API response:', summary)
     
-    // Ensure it's under 280 characters
-    if (summary && summary.length > 280) {
-      return summary.substring(0, 277) + '...'
+    // Allow longer summaries since we have space in the description field
+    if (summary && summary.length > 500) {
+      return summary.substring(0, 497) + '...'
     }
     
     return summary

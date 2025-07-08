@@ -328,7 +328,7 @@ export default function ManagePage() {
                           {house.title}
                         </h3>
                         {house.description && (
-                          <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                          <p className="text-xs text-gray-600 dark:text-gray-300 break-words max-w-full overflow-wrap-anywhere">
                             {house.description}
                           </p>
                         )}
@@ -381,7 +381,7 @@ export default function ManagePage() {
                           {house.title}
                         </h3>
                         {house.description && (
-                          <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                          <p className="text-xs text-gray-600 dark:text-gray-300 break-words max-w-full overflow-wrap-anywhere">
                             {house.description}
                           </p>
                         )}
