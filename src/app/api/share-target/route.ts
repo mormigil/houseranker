@@ -161,8 +161,10 @@ function parseSharedPropertyData(shared: { title: string, text: string, url: str
       }
     }
     
-    // Use remaining text as description
-    result.description = combinedText
+    // Use remaining text as description, but filter out common sharing phrases
+    let description = combinedText
+    description = description.replace(/Check out this Compass listing\.?/gi, '').trim()
+    result.description = description
   }
   
   return result

@@ -90,6 +90,25 @@ export default function ManagePage() {
       return
     }
     
+    // Check for duplicates based on title, image URL, or similar address
+    const isDuplicate = houses.some(house => {
+      // Check exact title match
+      if (house.title.toLowerCase() === newHouse.title.toLowerCase()) {
+        return true
+      }
+      // Check image URL match
+      if (newHouse.image_url && house.image_url && 
+          house.image_url === newHouse.image_url) {
+        return true
+      }
+      return false
+    })
+    
+    if (isDuplicate) {
+      setError('This house appears to already exist in your list')
+      return
+    }
+    
     // Extra safety check
     if (adding) {
       return
@@ -293,8 +312,8 @@ export default function ManagePage() {
                         <Image
                           src={house.image_url}
                           alt={house.title}
-                          width={60}
-                          height={60}
+                          width={120}
+                          height={120}
                           className="rounded-lg object-cover"
                         />
                       )}
@@ -304,7 +323,7 @@ export default function ManagePage() {
                           {house.title}
                         </h3>
                         {house.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                          <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
                             {house.description}
                           </p>
                         )}
@@ -346,8 +365,8 @@ export default function ManagePage() {
                         <Image
                           src={house.image_url}
                           alt={house.title}
-                          width={60}
-                          height={60}
+                          width={120}
+                          height={120}
                           className="rounded-lg object-cover"
                         />
                       )}
@@ -357,7 +376,7 @@ export default function ManagePage() {
                           {house.title}
                         </h3>
                         {house.description && (
-                          <p className="text-sm text-gray-600 dark:text-gray-300 truncate">
+                          <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
                             {house.description}
                           </p>
                         )}
