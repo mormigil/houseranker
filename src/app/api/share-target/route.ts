@@ -15,6 +15,12 @@ export async function POST(request: NextRequest) {
     // Parse form data from share intent
     const formData = await request.formData()
     
+    // Log all available form data
+    console.log('All form data keys:', Array.from(formData.keys()))
+    for (const [key, value] of formData.entries()) {
+      console.log(`${key}:`, value)
+    }
+    
     // Extract data from form
     let title = formData.get('title') as string || ''
     let text = formData.get('text') as string || ''
