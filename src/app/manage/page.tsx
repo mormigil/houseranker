@@ -34,17 +34,21 @@ export default function ManagePage() {
         listing_url: urlParams.get('listing_url') || ''
       }
       
-      // Pre-fill the form and show it
+      // Pre-fill the form and show it after a short delay
       setNewHouse({
         title: sharedData.title,
         description: sharedData.description || `Property shared from ${sharedData.address || 'real estate app'}${sharedData.listing_url ? `. View listing: ${sharedData.listing_url}` : ''}`,
         image_url: urlParams.get('image_url') || ''
       })
-      setShowAddForm(true)
       
-      // Clean up URL params
+      // Clean up URL params first
       const newUrl = new URL('/manage', window.location.origin)
       window.history.replaceState({}, 'Manage Houses', newUrl.toString())
+      
+      // Show form after a brief delay to ensure everything is loaded
+      setTimeout(() => {
+        setShowAddForm(true)
+      }, 100)
     }
   }, [])
 
@@ -79,9 +83,15 @@ export default function ManagePage() {
 
   const handleAddHouse = async (e: React.FormEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     
     if (!newHouse.title.trim()) {
       setError('Title is required')
+      return
+    }
+    
+    // Extra safety check
+    if (adding) {
       return
     }
 
@@ -204,7 +214,7 @@ export default function ManagePage() {
               Add New House
             </h2>
             
-            <form onSubmit={handleAddHouse} className="space-y-4">
+            <form onSubmit={handleAddHouse} action="#" method="post" className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Title *

@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
     
     // Parse property data from shared content
     const propertyData = parseSharedPropertyData({ title, text, url })
-    console.log('Parsed property data:', propertyData)
     
     // Try to extract images from the shared URL
     let imageUrl = ''
@@ -59,19 +58,31 @@ export async function POST(request: NextRequest) {
     // For now, we'll redirect to the import page with the data as URL params
     const searchParams = new URLSearchParams()
     
-    if (propertyData.title && propertyData.title !== 'null') searchParams.set('title', propertyData.title)
-    if (propertyData.address && propertyData.address !== 'null') searchParams.set('address', propertyData.address)
-    if (propertyData.price && propertyData.price !== null) searchParams.set('price', propertyData.price.toString())
-    if (propertyData.description && propertyData.description !== 'null') searchParams.set('description', propertyData.description)
-    if (url && url !== 'null') searchParams.set('listing_url', url)
-    if (imageUrl && imageUrl !== 'null') searchParams.set('image_url', imageUrl)
+    // Truncate very long strings to avoid URL length issues
+    if (propertyData.title && propertyData.title !== 'null') {
+      searchParams.set('title', propertyData.title.substring(0, 200))
+    }
+    if (propertyData.address && propertyData.address !== 'null') {
+      searchParams.set('address', propertyData.address.substring(0, 100))
+    }
+    if (propertyData.price && propertyData.price !== null) {
+      searchParams.set('price', propertyData.price.toString())
+    }
+    if (propertyData.description && propertyData.description !== 'null') {
+      searchParams.set('description', propertyData.description.substring(0, 300))
+    }
+    if (url && url !== 'null') {
+      searchParams.set('listing_url', url)
+    }
+    if (imageUrl && imageUrl !== 'null') {
+      searchParams.set('image_url', imageUrl)
+    }
     
     // Set a flag to indicate this came from share
     searchParams.set('from_share', 'true')
     
     // Redirect to the manage page with pre-filled data
     const redirectUrl = `/manage?${searchParams.toString()}`
-    console.log('Final redirect URL:', redirectUrl)
     
     try {
       const baseUrl = new URL(request.url).origin
