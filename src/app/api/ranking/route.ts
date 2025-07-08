@@ -9,18 +9,37 @@ export async function POST(request: NextRequest) {
   }
 
   const userId = request.headers.get('x-user-id') || 'default'
-  const { houseId, comparisons } = await request.json()
+  const { houseId, comparisons, rankingName } = await request.json()
 
   if (!houseId || !comparisons) {
     return NextResponse.json({ error: 'House ID and comparisons are required' }, { status: 400 })
   }
 
-  const { data: rankedHouses, error: rankedError } = await supabase
+  // Get the house being ranked to extract collection_name
+  const { data: currentHouse, error: currentHouseError } = await supabase
+    .from('houses')
+    .select('collection_name')
+    .eq('id', houseId)
+    .eq('user_id', userId)
+    .single()
+
+  if (currentHouseError || !currentHouse) {
+    return NextResponse.json({ error: 'House not found' }, { status: 404 })
+  }
+
+  // Query ranked houses with the same collection and ranking
+  let rankedQuery = supabase
     .from('houses')
     .select('*')
     .eq('user_id', userId)
     .eq('is_ranked', true)
-    .order('rank', { ascending: true })
+    .eq('collection_name', currentHouse.collection_name)
+
+  if (rankingName) {
+    rankedQuery = rankedQuery.eq('ranking_name', rankingName)
+  }
+
+  const { data: rankedHouses, error: rankedError } = await rankedQuery.order('rank', { ascending: true })
 
   if (rankedError) {
     return NextResponse.json({ error: rankedError.message }, { status: 500 })
@@ -30,6 +49,7 @@ export async function POST(request: NextRequest) {
   
   const updatedHouses = updateRanksAfterInsertion(rankedHouses, finalRank)
 
+  // Update existing ranked houses with new ranks within the same ranking
   const { error: updateError } = await supabase.rpc('update_house_ranks', {
     house_updates: updatedHouses.map(house => ({
       id: house.id,
@@ -46,6 +66,7 @@ export async function POST(request: NextRequest) {
     .update({
       rank: finalRank,
       is_ranked: true,
+      ranking_name: rankingName || 'Main Ranking',
       updated_at: new Date().toISOString(),
     })
     .eq('id', houseId)

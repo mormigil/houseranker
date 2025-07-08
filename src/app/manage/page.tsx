@@ -5,6 +5,7 @@ import { House } from '@/types/house'
 import Link from 'next/link'
 import Image from 'next/image'
 import ImportModal from '@/components/ImportModal'
+import { getCurrentCollection, setCurrentCollection, getCollections, addCollection } from '@/lib/localStorage'
 
 export default function ManagePage() {
   const [houses, setHouses] = useState<House[]>([])
@@ -12,6 +13,10 @@ export default function ManagePage() {
   const [error, setError] = useState<string | null>(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [currentCollection, setCurrentCollectionState] = useState('')
+  const [collections, setCollections] = useState<string[]>([])
+  const [showNewCollectionForm, setShowNewCollectionForm] = useState(false)
+  const [newCollectionName, setNewCollectionName] = useState('')
   const [newHouse, setNewHouse] = useState({
     title: '',
     description: '',
@@ -21,7 +26,13 @@ export default function ManagePage() {
   const [adding, setAdding] = useState(false)
 
   useEffect(() => {
-    fetchHouses()
+    // Initialize collection state
+    const collection = getCurrentCollection()
+    const allCollections = getCollections()
+    setCurrentCollectionState(collection)
+    setCollections(allCollections)
+    
+    fetchHouses(collection)
     
     // Check for shared data from URL params
     const urlParams = new URLSearchParams(window.location.search)
@@ -54,7 +65,7 @@ export default function ManagePage() {
     }
   }, [])
 
-  const fetchHouses = async () => {
+  const fetchHouses = async (collectionName?: string) => {
     try {
       const apiKey = localStorage.getItem('apiKey')
       if (!apiKey) {
@@ -63,7 +74,10 @@ export default function ManagePage() {
         return
       }
 
-      const response = await fetch('/api/houses', {
+      const collection = collectionName || currentCollection
+      const url = collection ? `/api/houses?collection_name=${encodeURIComponent(collection)}` : '/api/houses'
+      
+      const response = await fetch(url, {
         headers: {
           'x-api-key': apiKey,
           'x-user-id': 'default'
@@ -139,7 +153,10 @@ export default function ManagePage() {
           'x-api-key': apiKey!,
           'x-user-id': 'default'
         },
-        body: JSON.stringify(newHouse)
+        body: JSON.stringify({
+          ...newHouse,
+          collection_name: currentCollection
+        })
       })
 
       if (!response.ok) {
@@ -182,6 +199,32 @@ export default function ManagePage() {
     }
   }
 
+  const handleCollectionChange = (collectionName: string) => {
+    setCurrentCollectionState(collectionName)
+    setCurrentCollection(collectionName)
+    fetchHouses(collectionName)
+  }
+
+  const handleCreateCollection = () => {
+    if (!newCollectionName.trim()) {
+      setError('Collection name is required')
+      return
+    }
+    
+    if (collections.includes(newCollectionName)) {
+      setError('Collection already exists')
+      return
+    }
+    
+    addCollection(newCollectionName)
+    setCollections([...collections, newCollectionName])
+    setCurrentCollectionState(newCollectionName)
+    setCurrentCollection(newCollectionName)
+    setNewCollectionName('')
+    setShowNewCollectionForm(false)
+    fetchHouses(newCollectionName)
+  }
+
   const handleImportResult = (result: any) => {
     if (result.success) {
       // Show success message
@@ -207,15 +250,77 @@ export default function ManagePage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto p-4">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Manage Houses
-          </h1>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+              Manage Houses
+            </h1>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Collection: {currentCollection}
+            </p>
+          </div>
           <Link
             href="/"
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Back to Home
           </Link>
+        </div>
+
+        {/* Collection Management */}
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Collection:
+              </label>
+              <select
+                value={currentCollection}
+                onChange={(e) => handleCollectionChange(e.target.value)}
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                {collections.map(collection => (
+                  <option key={collection} value={collection}>
+                    {collection}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {!showNewCollectionForm ? (
+              <button
+                onClick={() => setShowNewCollectionForm(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+              >
+                New Collection
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newCollectionName}
+                  onChange={(e) => setNewCollectionName(e.target.value)}
+                  placeholder="Collection name"
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  onKeyPress={(e) => e.key === 'Enter' && handleCreateCollection()}
+                />
+                <button
+                  onClick={handleCreateCollection}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNewCollectionForm(false)
+                    setNewCollectionName('')
+                  }}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {error && (

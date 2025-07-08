@@ -429,9 +429,9 @@ async function createPropertySummary(details: any): Promise<string | null> {
 
     const msg = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 200,
+      max_tokens: 150,
       temperature: 0.7,
-      system: "You will receive information about a property listing. Respond only with a concise, low emotion summary of the listing (under 400 characters). Focus on key features, unique elements, and neighborhood information.",
+      system: "You will receive information about a property listing. Respond only with a concise, low emotion summary of the listing (under 300 characters). Focus on key features, unique elements, and neighborhood. Don't include price or num bed/bath that will be in the title.",
       messages: [
         {
           role: "user",
