@@ -272,9 +272,22 @@ export default function RankPage() {
               {currentHouse.title}
             </h3>
             {currentHouse.description && (
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4 break-words max-w-full overflow-wrap-anywhere">
                 {currentHouse.description}
               </p>
+            )}
+            
+            {currentHouse.listing_url && (
+              <div className="mb-4">
+                <a
+                  href={currentHouse.listing_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700 text-sm"
+                >
+                  View Full Listing →
+                </a>
+              </div>
             )}
             
             <button
@@ -307,9 +320,22 @@ export default function RankPage() {
               {compareHouse?.title}
             </h3>
             {compareHouse?.description && (
-              <p className="text-gray-600 dark:text-gray-300 mb-4">
+              <p className="text-gray-600 dark:text-gray-300 mb-4 break-words max-w-full overflow-wrap-anywhere">
                 {compareHouse.description}
               </p>
+            )}
+            
+            {compareHouse?.listing_url && (
+              <div className="mb-4">
+                <a
+                  href={compareHouse.listing_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700 text-sm"
+                >
+                  View Full Listing →
+                </a>
+              </div>
             )}
             
             <button

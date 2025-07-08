@@ -15,7 +15,8 @@ export default function ManagePage() {
   const [newHouse, setNewHouse] = useState({
     title: '',
     description: '',
-    image_url: ''
+    image_url: '',
+    listing_url: ''
   })
   const [adding, setAdding] = useState(false)
 
@@ -38,7 +39,8 @@ export default function ManagePage() {
       setNewHouse({
         title: sharedData.title,
         description: sharedData.description || `Property shared from ${sharedData.address || 'real estate app'}${sharedData.listing_url ? `. View listing: ${sharedData.listing_url}` : ''}`,
-        image_url: urlParams.get('image_url') || ''
+        image_url: urlParams.get('image_url') || '',
+        listing_url: sharedData.listing_url || ''
       })
       
       // Clean up URL params first
@@ -140,7 +142,7 @@ export default function ManagePage() {
 
       const addedHouse = await response.json()
       setHouses([addedHouse, ...houses])
-      setNewHouse({ title: '', description: '', image_url: '' })
+      setNewHouse({ title: '', description: '', image_url: '', listing_url: '' })
       setShowAddForm(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add house')
@@ -278,6 +280,19 @@ export default function ManagePage() {
                   placeholder="Enter image URL"
                 />
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Listing URL
+                </label>
+                <input
+                  type="url"
+                  value={newHouse.listing_url}
+                  onChange={(e) => setNewHouse({ ...newHouse, listing_url: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="Enter listing URL (e.g., Compass, Zillow)"
+                />
+              </div>
               
               <div className="flex gap-2">
                 <button
@@ -334,12 +349,24 @@ export default function ManagePage() {
                         )}
                       </div>
                       
-                      <button
-                        onClick={() => handleDeleteHouse(house.id)}
-                        className="text-red-600 hover:text-red-700 p-2"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex flex-col gap-1">
+                        {house.listing_url && (
+                          <a
+                            href={house.listing_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 p-2 text-xs"
+                          >
+                            View Listing
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleDeleteHouse(house.id)}
+                          className="text-red-600 hover:text-red-700 p-2 text-xs"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   ))}
               </div>
@@ -387,12 +414,24 @@ export default function ManagePage() {
                         )}
                       </div>
                       
-                      <button
-                        onClick={() => handleDeleteHouse(house.id)}
-                        className="text-red-600 hover:text-red-700 p-2"
-                      >
-                        Delete
-                      </button>
+                      <div className="flex flex-col gap-1">
+                        {house.listing_url && (
+                          <a
+                            href={house.listing_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 p-2 text-xs"
+                          >
+                            View Listing
+                          </a>
+                        )}
+                        <button
+                          onClick={() => handleDeleteHouse(house.id)}
+                          className="text-red-600 hover:text-red-700 p-2 text-xs"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </div>
                   ))}
               </div>
