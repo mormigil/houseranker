@@ -4,6 +4,8 @@ export interface House {
   description?: string
   image_url?: string
   listing_url?: string
+  collection_name?: string
+  ranking_name?: string
   rank?: number | null
   is_ranked: boolean
   user_id: string
@@ -16,6 +18,7 @@ export interface CreateHouseRequest {
   description?: string
   image_url?: string
   listing_url?: string
+  collection_name?: string
 }
 
 export interface RankingComparison {

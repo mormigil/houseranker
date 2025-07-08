@@ -9,12 +9,22 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const ranked = searchParams.get('ranked')
+  const collectionName = searchParams.get('collection_name')
+  const rankingName = searchParams.get('ranking_name')
   const userId = request.headers.get('x-user-id') || 'default'
 
   let query = supabase
     .from('houses')
     .select('*')
     .eq('user_id', userId)
+
+  if (collectionName) {
+    query = query.eq('collection_name', collectionName)
+  }
+
+  if (rankingName) {
+    query = query.eq('ranking_name', rankingName)
+  }
 
   if (ranked === 'true') {
     query = query.eq('is_ranked', true).order('rank', { ascending: true })
@@ -49,7 +59,7 @@ export async function POST(request: NextRequest) {
   }
 
   const userId = request.headers.get('x-user-id') || 'default'
-  const { title, description, image_url } = await request.json()
+  const { title, description, image_url, listing_url, collection_name } = await request.json()
 
   if (!title) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -62,6 +72,8 @@ export async function POST(request: NextRequest) {
         title,
         description,
         image_url,
+        listing_url,
+        collection_name: collection_name || 'Default Collection',
         user_id: userId,
         is_ranked: false,
       },

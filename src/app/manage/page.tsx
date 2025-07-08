@@ -108,6 +108,12 @@ export default function ManagePage() {
         console.log('Found duplicate image URL:', house.image_url)
         return true
       }
+      // Check listing URL match
+      if (newHouse.listing_url && house.listing_url && 
+          house.listing_url === newHouse.listing_url) {
+        console.log('Found duplicate listing URL:', house.listing_url)
+        return true
+      }
       return false
     })
     
