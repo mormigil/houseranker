@@ -86,11 +86,11 @@ export async function POST(request: NextRequest) {
     
     try {
       const baseUrl = new URL(request.url).origin
-      return NextResponse.redirect(new URL(redirectUrl, baseUrl))
+      return NextResponse.redirect(new URL(redirectUrl, baseUrl), 302)
     } catch (urlError) {
       console.error('URL construction error:', urlError)
       // Fallback to simple redirect
-      return NextResponse.redirect(`https://houseranker.vercel.app${redirectUrl}`)
+      return NextResponse.redirect(`https://houseranker.vercel.app${redirectUrl}`, 302)
     }
     
   } catch (error) {
