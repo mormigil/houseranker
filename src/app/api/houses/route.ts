@@ -49,8 +49,54 @@ export async function GET(request: NextRequest) {
     }))
 
     return NextResponse.json(flattenedData)
+  } else if (ranked === 'false') {
+    // For unranked houses, find houses that are NOT ranked in the current ranking
+    let housesQuery = supabase
+      .from('houses')
+      .select('*')
+      .eq('user_id', userId)
+
+    if (collectionName) {
+      housesQuery = housesQuery.eq('collection_name', collectionName)
+    }
+
+    const { data: allHouses, error: housesError } = await housesQuery
+      .order('created_at', { ascending: false })
+      .limit(1000)
+
+    if (housesError) {
+      console.error('Supabase error in GET /api/houses (unranked houses):', housesError)
+      return NextResponse.json({ error: housesError.message }, { status: 500 })
+    }
+
+    // Find which houses are already ranked in the current ranking
+    let rankedQuery = supabase
+      .from('rankings')
+      .select('house_id')
+      .eq('user_id', userId)
+
+    if (collectionName) {
+      rankedQuery = rankedQuery.eq('collection_name', collectionName)
+    }
+
+    if (rankingName) {
+      rankedQuery = rankedQuery.eq('ranking_name', rankingName)
+    }
+
+    const { data: rankedHouseIds, error: rankedError } = await rankedQuery
+
+    if (rankedError) {
+      console.error('Supabase error in GET /api/houses (checking ranked):', rankedError)
+      return NextResponse.json({ error: rankedError.message }, { status: 500 })
+    }
+
+    // Filter out houses that are already ranked in this specific ranking
+    const rankedIds = new Set(rankedHouseIds?.map(r => r.house_id) || [])
+    const unrankedHouses = allHouses?.filter(house => !rankedIds.has(house.id)) || []
+
+    return NextResponse.json(unrankedHouses)
   } else {
-    // For unranked houses or general queries, use the houses table directly
+    // For general queries, use the houses table directly
     let query = supabase
       .from('houses')
       .select('*')
@@ -60,11 +106,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('collection_name', collectionName)
     }
 
-    if (ranked === 'false') {
-      query = query.eq('is_ranked', false).order('created_at', { ascending: false })
-    } else {
-      query = query.order('created_at', { ascending: false })
-    }
+    query = query.order('created_at', { ascending: false })
 
     const { data, error } = await query.limit(1000)
 
