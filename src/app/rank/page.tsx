@@ -86,7 +86,7 @@ export default function RankPage() {
         const params = new URLSearchParams()
         params.set('ranked', ranked.toString())
         if (collection) params.set('collection_name', collection)
-        if (ranking && ranked) params.set('ranking_name', ranking)
+        if (ranking) params.set('ranking_name', ranking)
         return `/api/houses?${params.toString()}`
       }
 
@@ -153,6 +153,10 @@ export default function RankPage() {
   const handleRankingChange = (rankingName: string) => {
     setCurrentRankingName(rankingName)
     setCurrentRanking(rankingName)
+    // Reset current house and comparisons when switching rankings
+    setCurrentHouse(null)
+    setCompareHouse(null)
+    setComparisons([])
     fetchHouses(currentCollection, rankingName)
   }
 

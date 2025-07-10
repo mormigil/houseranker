@@ -5,7 +5,7 @@ import { House } from '@/types/house'
 import Link from 'next/link'
 import Image from 'next/image'
 import ImportModal from '@/components/ImportModal'
-import { getCurrentCollection, setCurrentCollection, getCollections, addCollection } from '@/lib/localStorage'
+import { getCurrentCollection, setCurrentCollection, getCollections, addCollection, getCurrentRanking, setCurrentRanking, getRankingsForCollection, addRanking } from '@/lib/localStorage'
 
 export default function ManagePage() {
   const [houses, setHouses] = useState<House[]>([])
@@ -14,10 +14,14 @@ export default function ManagePage() {
   const [showAddForm, setShowAddForm] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [currentCollection, setCurrentCollectionState] = useState('')
+  const [currentRanking, setCurrentRanking] = useState('')
   const [collections, setCollections] = useState<string[]>([])
+  const [rankings, setRankings] = useState<string[]>([])
   const [allRankings, setAllRankings] = useState<string[]>([])
   const [showNewCollectionForm, setShowNewCollectionForm] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
+  const [showNewRankingForm, setShowNewRankingForm] = useState(false)
+  const [newRankingName, setNewRankingName] = useState('')
   const [newHouse, setNewHouse] = useState({
     title: '',
     description: '',
@@ -27,13 +31,15 @@ export default function ManagePage() {
   const [adding, setAdding] = useState(false)
 
   useEffect(() => {
-    // Initialize collection state
+    // Initialize collection and ranking state
     const collection = getCurrentCollection()
+    const ranking = getCurrentRanking()
     setCurrentCollectionState(collection)
+    setCurrentRanking(ranking)
     
     // Fetch collections and rankings from database
     fetchCollectionsAndRankings()
-    fetchHouses(collection)
+    fetchHouses(collection, ranking)
     
     // Check for shared data from URL params
     const urlParams = new URLSearchParams(window.location.search)
@@ -85,6 +91,11 @@ export default function ManagePage() {
         const mergedCollections = Array.from(new Set([...localCollections, ...data.collections]))
         setCollections(mergedCollections)
         setAllRankings(data.rankings)
+        
+        // Update rankings for current collection
+        const localRankings = getRankingsForCollection(currentCollection)
+        const mergedRankings = Array.from(new Set([...localRankings, ...data.rankings]))
+        setRankings(mergedRankings)
       }
     } catch (err) {
       console.error('Failed to fetch collections and rankings:', err)
@@ -94,7 +105,7 @@ export default function ManagePage() {
     }
   }
 
-  const fetchHouses = async (collectionName?: string) => {
+  const fetchHouses = async (collectionName?: string, rankingName?: string) => {
     try {
       const apiKey = localStorage.getItem('apiKey')
       if (!apiKey) {
@@ -104,21 +115,42 @@ export default function ManagePage() {
       }
 
       const collection = collectionName || currentCollection
-      const url = collection ? `/api/houses?collection_name=${encodeURIComponent(collection)}` : '/api/houses'
+      const ranking = rankingName || currentRanking
       
-      const response = await fetch(url, {
-        headers: {
-          'x-api-key': apiKey,
-          'x-user-id': 'default'
-        }
-      })
+      // Fetch ranked and unranked houses separately for current ranking
+      const buildUrl = (ranked: boolean) => {
+        const params = new URLSearchParams()
+        params.set('ranked', ranked.toString())
+        if (collection) params.set('collection_name', collection)
+        if (ranking && ranked) params.set('ranking_name', ranking)
+        return `/api/houses?${params.toString()}`
+      }
 
-      if (!response.ok) {
+      const [rankedResponse, unrankedResponse] = await Promise.all([
+        fetch(buildUrl(true), {
+          headers: { 'x-api-key': apiKey, 'x-user-id': 'default' }
+        }),
+        fetch(buildUrl(false), {
+          headers: { 'x-api-key': apiKey, 'x-user-id': 'default' }
+        })
+      ])
+
+      if (!rankedResponse.ok || !unrankedResponse.ok) {
         throw new Error('Failed to fetch houses')
       }
 
-      const data = await response.json()
-      setHouses(data)
+      const [rankedData, unrankedData] = await Promise.all([
+        rankedResponse.json(),
+        unrankedResponse.json()
+      ])
+
+      // Combine and mark houses appropriately
+      const allHouses = [
+        ...rankedData.map((h: House) => ({ ...h, is_ranked: true })),
+        ...unrankedData.map((h: House) => ({ ...h, is_ranked: false }))
+      ]
+
+      setHouses(allHouses)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -231,7 +263,21 @@ export default function ManagePage() {
   const handleCollectionChange = (collectionName: string) => {
     setCurrentCollectionState(collectionName)
     setCurrentCollection(collectionName)
-    fetchHouses(collectionName)
+    
+    // Update rankings for new collection
+    const newRankings = getRankingsForCollection(collectionName)
+    setRankings(newRankings)
+    const firstRanking = newRankings[0] || 'Main Ranking'
+    setCurrentRanking(firstRanking)
+    setCurrentRanking(firstRanking)
+    
+    fetchHouses(collectionName, firstRanking)
+  }
+
+  const handleRankingChange = (rankingName: string) => {
+    setCurrentRanking(rankingName)
+    setCurrentRanking(rankingName)
+    fetchHouses(currentCollection, rankingName)
   }
 
   const handleCreateCollection = () => {
@@ -251,7 +297,28 @@ export default function ManagePage() {
     setCurrentCollection(newCollectionName)
     setNewCollectionName('')
     setShowNewCollectionForm(false)
-    fetchHouses(newCollectionName)
+    fetchHouses(newCollectionName, 'Main Ranking')
+  }
+
+  const handleCreateRanking = () => {
+    if (!newRankingName.trim()) {
+      setError('Ranking name is required')
+      return
+    }
+    
+    if (rankings.includes(newRankingName)) {
+      setError('Ranking already exists')
+      return
+    }
+    
+    addRanking(currentCollection, newRankingName)
+    const updatedRankings = getRankingsForCollection(currentCollection)
+    setRankings(updatedRankings)
+    setCurrentRanking(newRankingName)
+    setCurrentRanking(newRankingName)
+    setNewRankingName('')
+    setShowNewRankingForm(false)
+    fetchHouses(currentCollection, newRankingName)
   }
 
   const handleImportResult = (result: any) => {
@@ -284,7 +351,7 @@ export default function ManagePage() {
               Manage Houses
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Collection: {currentCollection}
+              Collection: {currentCollection} • Ranking: {currentRanking}
             </p>
           </div>
           <Link
@@ -342,6 +409,58 @@ export default function ManagePage() {
                   onClick={() => {
                     setShowNewCollectionForm(false)
                     setNewCollectionName('')
+                  }}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Ranking:
+              </label>
+              <select
+                value={currentRanking}
+                onChange={(e) => handleRankingChange(e.target.value)}
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                {rankings.map(ranking => (
+                  <option key={ranking} value={ranking}>
+                    {ranking}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {!showNewRankingForm ? (
+              <button
+                onClick={() => setShowNewRankingForm(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+              >
+                New Ranking
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newRankingName}
+                  onChange={(e) => setNewRankingName(e.target.value)}
+                  placeholder="Ranking name"
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  onKeyPress={(e) => e.key === 'Enter' && handleCreateRanking()}
+                />
+                <button
+                  onClick={handleCreateRanking}
+                  className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNewRankingForm(false)
+                    setNewRankingName('')
                   }}
                   className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded-lg text-sm transition-colors"
                 >
