@@ -45,7 +45,12 @@ export default function RankPage() {
   const fetchRankings = async () => {
     try {
       const apiKey = localStorage.getItem('apiKey')
-      if (!apiKey) return
+      if (!apiKey) {
+        // Use localStorage only
+        const localRankings = getRankingsForCollection(currentCollection)
+        setRankings(localRankings)
+        return
+      }
 
       const response = await fetch('/api/collections', {
         headers: {
@@ -57,10 +62,12 @@ export default function RankPage() {
       if (response.ok) {
         const data = await response.json()
         setAllRankings(data.rankings)
-        // Merge with localStorage rankings for current collection
+        // ALWAYS merge with localStorage rankings for current collection
         const localRankings = getRankingsForCollection(currentCollection)
         const mergedRankings = Array.from(new Set([...localRankings, ...data.rankings]))
         setRankings(mergedRankings)
+      } else {
+        throw new Error('Failed to fetch rankings')
       }
     } catch (err) {
       console.error('Failed to fetch rankings:', err)
@@ -171,13 +178,15 @@ export default function RankPage() {
       return
     }
     
+    // Add to localStorage and immediately to local state
     addRanking(currentCollection, newRankingName)
-    const updatedRankings = getRankingsForCollection(currentCollection)
+    const updatedRankings = [...rankings, newRankingName]
     setRankings(updatedRankings)
     setCurrentRankingName(newRankingName)
     setCurrentRanking(newRankingName)
     setNewRankingName('')
     setShowNewRankingForm(false)
+    setError(null)
     fetchHouses(currentCollection, newRankingName)
   }
 

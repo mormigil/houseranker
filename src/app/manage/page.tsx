@@ -75,7 +75,14 @@ export default function ManagePage() {
   const fetchCollectionsAndRankings = async () => {
     try {
       const apiKey = localStorage.getItem('apiKey')
-      if (!apiKey) return
+      if (!apiKey) {
+        // If no API key, use localStorage only
+        const localCollections = getCollections()
+        const localRankings = getRankingsForCollection(currentCollection)
+        setCollections(localCollections)
+        setRankings(localRankings)
+        return
+      }
 
       const response = await fetch('/api/collections', {
         headers: {
@@ -92,16 +99,20 @@ export default function ManagePage() {
         setCollections(mergedCollections)
         setAllRankings(data.rankings)
         
-        // Update rankings for current collection
+        // ALWAYS merge with localStorage rankings for current collection
         const localRankings = getRankingsForCollection(currentCollection)
         const mergedRankings = Array.from(new Set([...localRankings, ...data.rankings]))
         setRankings(mergedRankings)
+      } else {
+        throw new Error('Failed to fetch from API')
       }
     } catch (err) {
       console.error('Failed to fetch collections and rankings:', err)
       // Fallback to localStorage
       const localCollections = getCollections()
+      const localRankings = getRankingsForCollection(currentCollection)
       setCollections(localCollections)
+      setRankings(localRankings)
     }
   }
 
@@ -122,7 +133,7 @@ export default function ManagePage() {
         const params = new URLSearchParams()
         params.set('ranked', ranked.toString())
         if (collection) params.set('collection_name', collection)
-        if (ranking && ranked) params.set('ranking_name', ranking)
+        if (ranking) params.set('ranking_name', ranking)
         return `/api/houses?${params.toString()}`
       }
 
@@ -264,10 +275,12 @@ export default function ManagePage() {
     setCurrentCollectionState(collectionName)
     setCurrentCollection(collectionName)
     
-    // Update rankings for new collection
-    const newRankings = getRankingsForCollection(collectionName)
-    setRankings(newRankings)
-    const firstRanking = newRankings[0] || 'Main Ranking'
+    // Update rankings for new collection - merge localStorage with database rankings
+    const localRankings = getRankingsForCollection(collectionName)
+    const mergedRankings = Array.from(new Set([...localRankings, ...allRankings]))
+    setRankings(mergedRankings)
+    
+    const firstRanking = mergedRankings[0] || 'Main Ranking'
     setCurrentRanking(firstRanking)
     setCurrentRanking(firstRanking)
     
@@ -311,13 +324,15 @@ export default function ManagePage() {
       return
     }
     
+    // Add to localStorage and immediately to local state
     addRanking(currentCollection, newRankingName)
-    const updatedRankings = getRankingsForCollection(currentCollection)
+    const updatedRankings = [...rankings, newRankingName]
     setRankings(updatedRankings)
     setCurrentRanking(newRankingName)
     setCurrentRanking(newRankingName)
     setNewRankingName('')
     setShowNewRankingForm(false)
+    setError(null)
     fetchHouses(currentCollection, newRankingName)
   }
 

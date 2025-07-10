@@ -159,13 +159,15 @@ export default function ListPage() {
       return
     }
     
+    // Add to localStorage and immediately to local state
     addRanking(currentCollection, newRankingName)
-    const updatedRankings = getRankingsForCollection(currentCollection)
+    const updatedRankings = [...rankings, newRankingName]
     setRankings(updatedRankings)
     setCurrentRankingName(newRankingName)
     setCurrentRanking(newRankingName)
     setNewRankingName('')
     setShowNewRankingForm(false)
+    setError(null)
     fetchRankedHouses(currentCollection, newRankingName)
   }
 
