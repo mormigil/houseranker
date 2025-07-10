@@ -27,46 +27,75 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'House not found' }, { status: 404 })
   }
 
-  // Query ranked houses with the same collection and ranking
+  // Query ranked houses with the same collection and ranking using the rankings table
   let rankedQuery = supabase
-    .from('houses')
-    .select('*')
+    .from('rankings')
+    .select(`
+      *,
+      houses!inner(*)
+    `)
     .eq('user_id', userId)
-    .eq('is_ranked', true)
     .eq('collection_name', currentHouse.collection_name)
+    .eq('ranking_name', rankingName || 'Main Ranking')
 
-  if (rankingName) {
-    rankedQuery = rankedQuery.eq('ranking_name', rankingName)
-  }
-
-  const { data: rankedHouses, error: rankedError } = await rankedQuery.order('rank', { ascending: true })
+  const { data: rankedData, error: rankedError } = await rankedQuery.order('rank', { ascending: true })
 
   if (rankedError) {
     return NextResponse.json({ error: rankedError.message }, { status: 500 })
   }
 
+  // Transform the data to match the expected format
+  const rankedHouses = rankedData?.map(ranking => ({
+    ...ranking.houses,
+    rank: ranking.rank,
+    ranking_name: ranking.ranking_name
+  })) || []
+
   const finalRank = calculateFinalRank(rankedHouses, comparisons)
   
   const updatedHouses = updateRanksAfterInsertion(rankedHouses, finalRank)
 
-  // Update existing ranked houses with new ranks within the same ranking
-  const { error: updateError } = await supabase.rpc('update_house_ranks', {
-    house_updates: updatedHouses.map(house => ({
-      id: house.id,
+  // Update existing rankings with new ranks using RPC for efficiency
+  if (updatedHouses.length > 0) {
+    const rankUpdates = updatedHouses.map(house => ({
+      house_id: house.id,
       rank: house.rank
     }))
-  })
 
-  if (updateError) {
-    console.error('Error updating ranks:', updateError)
+    const { error: updateError } = await supabase.rpc('update_ranking_ranks', {
+      p_user_id: userId,
+      p_collection_name: currentHouse.collection_name,
+      p_ranking_name: rankingName || 'Main Ranking',
+      rank_updates: rankUpdates
+    })
+
+    if (updateError) {
+      console.error('Error updating rankings:', updateError)
+    }
   }
 
+  // Insert or update the ranking for the current house
+  const { error: rankingUpsertError } = await supabase
+    .from('rankings')
+    .upsert({
+      house_id: houseId,
+      user_id: userId,
+      collection_name: currentHouse.collection_name,
+      ranking_name: rankingName || 'Main Ranking',
+      rank: finalRank,
+      updated_at: new Date().toISOString()
+    })
+
+  if (rankingUpsertError) {
+    console.error('Error upserting ranking:', rankingUpsertError)
+    return NextResponse.json({ error: rankingUpsertError.message }, { status: 500 })
+  }
+
+  // Update the house to mark it as ranked
   const { data: updatedHouse, error: houseError } = await supabase
     .from('houses')
     .update({
-      rank: finalRank,
       is_ranked: true,
-      ranking_name: rankingName || 'Main Ranking',
       updated_at: new Date().toISOString(),
     })
     .eq('id', houseId)

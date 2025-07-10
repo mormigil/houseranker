@@ -13,44 +13,68 @@ export async function GET(request: NextRequest) {
   const rankingName = searchParams.get('ranking_name')
   const userId = request.headers.get('x-user-id') || 'default'
 
-  let query = supabase
-    .from('houses')
-    .select('*')
-    .eq('user_id', userId)
-
-  if (collectionName) {
-    query = query.eq('collection_name', collectionName)
-  }
-
-  if (rankingName) {
-    query = query.eq('ranking_name', rankingName)
-  }
-
   if (ranked === 'true') {
-    query = query.eq('is_ranked', true).order('rank', { ascending: true })
-  } else if (ranked === 'false') {
-    query = query.eq('is_ranked', false).order('created_at', { ascending: false })
+    // For ranked houses, query the rankings table and join with houses
+    let query = supabase
+      .from('rankings')
+      .select(`
+        rank,
+        ranking_name,
+        houses!inner(*)
+      `)
+      .eq('user_id', userId)
+
+    if (collectionName) {
+      query = query.eq('collection_name', collectionName)
+    }
+
+    if (rankingName) {
+      query = query.eq('ranking_name', rankingName)
+    }
+
+    const { data, error } = await query
+      .order('rank', { ascending: true })
+      .limit(1000)
+
+    if (error) {
+      console.error('Supabase error in GET /api/houses (ranked):', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Flatten the data to match expected house format
+    const flattenedData = data?.map(ranking => ({
+      ...ranking.houses,
+      rank: ranking.rank,
+      ranking_name: ranking.ranking_name
+    }))
+
+    return NextResponse.json(flattenedData)
   } else {
-    query = query.order('created_at', { ascending: false })
+    // For unranked houses or general queries, use the houses table directly
+    let query = supabase
+      .from('houses')
+      .select('*')
+      .eq('user_id', userId)
+
+    if (collectionName) {
+      query = query.eq('collection_name', collectionName)
+    }
+
+    if (ranked === 'false') {
+      query = query.eq('is_ranked', false).order('created_at', { ascending: false })
+    } else {
+      query = query.order('created_at', { ascending: false })
+    }
+
+    const { data, error } = await query.limit(1000)
+
+    if (error) {
+      console.error('Supabase error in GET /api/houses:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data)
   }
-
-  const { data, error } = await query
-
-  if (error) {
-    console.error('Supabase error in GET /api/houses:', {
-      message: error.message,
-      details: error.details,
-      hint: error.hint,
-      code: error.code
-    })
-    return NextResponse.json({ 
-      error: error.message,
-      details: error.details,
-      hint: error.hint 
-    }, { status: 500 })
-  }
-
-  return NextResponse.json(data)
 }
 
 export async function POST(request: NextRequest) {

@@ -15,6 +15,7 @@ export default function ManagePage() {
   const [showImportModal, setShowImportModal] = useState(false)
   const [currentCollection, setCurrentCollectionState] = useState('')
   const [collections, setCollections] = useState<string[]>([])
+  const [allRankings, setAllRankings] = useState<string[]>([])
   const [showNewCollectionForm, setShowNewCollectionForm] = useState(false)
   const [newCollectionName, setNewCollectionName] = useState('')
   const [newHouse, setNewHouse] = useState({
@@ -28,10 +29,10 @@ export default function ManagePage() {
   useEffect(() => {
     // Initialize collection state
     const collection = getCurrentCollection()
-    const allCollections = getCollections()
     setCurrentCollectionState(collection)
-    setCollections(allCollections)
     
+    // Fetch collections and rankings from database
+    fetchCollectionsAndRankings()
     fetchHouses(collection)
     
     // Check for shared data from URL params
@@ -64,6 +65,34 @@ export default function ManagePage() {
       }, 100)
     }
   }, [])
+
+  const fetchCollectionsAndRankings = async () => {
+    try {
+      const apiKey = localStorage.getItem('apiKey')
+      if (!apiKey) return
+
+      const response = await fetch('/api/collections', {
+        headers: {
+          'x-api-key': apiKey,
+          'x-user-id': 'default'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // Merge with localStorage collections to keep user's personal collections
+        const localCollections = getCollections()
+        const mergedCollections = Array.from(new Set([...localCollections, ...data.collections]))
+        setCollections(mergedCollections)
+        setAllRankings(data.rankings)
+      }
+    } catch (err) {
+      console.error('Failed to fetch collections and rankings:', err)
+      // Fallback to localStorage
+      const localCollections = getCollections()
+      setCollections(localCollections)
+    }
+  }
 
   const fetchHouses = async (collectionName?: string) => {
     try {

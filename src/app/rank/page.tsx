@@ -25,6 +25,7 @@ export default function RankPage() {
   const [currentCollection, setCurrentCollection] = useState('')
   const [currentRankingName, setCurrentRankingName] = useState('')
   const [rankings, setRankings] = useState<string[]>([])
+  const [allRankings, setAllRankings] = useState<string[]>([])
   const [showNewRankingForm, setShowNewRankingForm] = useState(false)
   const [newRankingName, setNewRankingName] = useState('')
 
@@ -32,14 +33,42 @@ export default function RankPage() {
     // Initialize collection and ranking state
     const collection = getCurrentCollection()
     const ranking = getCurrentRanking()
-    const allRankings = getRankingsForCollection(collection)
     
     setCurrentCollection(collection)
     setCurrentRankingName(ranking)
-    setRankings(allRankings)
     
+    // Fetch available rankings from database
+    fetchRankings()
     fetchHouses(collection, ranking)
   }, [])
+
+  const fetchRankings = async () => {
+    try {
+      const apiKey = localStorage.getItem('apiKey')
+      if (!apiKey) return
+
+      const response = await fetch('/api/collections', {
+        headers: {
+          'x-api-key': apiKey,
+          'x-user-id': 'default'
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setAllRankings(data.rankings)
+        // Merge with localStorage rankings for current collection
+        const localRankings = getRankingsForCollection(currentCollection)
+        const mergedRankings = Array.from(new Set([...localRankings, ...data.rankings]))
+        setRankings(mergedRankings)
+      }
+    } catch (err) {
+      console.error('Failed to fetch rankings:', err)
+      // Fallback to localStorage
+      const localRankings = getRankingsForCollection(currentCollection)
+      setRankings(localRankings)
+    }
+  }
 
   const fetchHouses = async (collectionName?: string, rankingName?: string) => {
     try {
