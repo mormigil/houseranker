@@ -18,6 +18,7 @@ export default function ListPage() {
   const [newCollectionName, setNewCollectionName] = useState('')
   const [showNewRankingForm, setShowNewRankingForm] = useState(false)
   const [newRankingName, setNewRankingName] = useState('')
+  const [rerankingHouseId, setRerankingHouseId] = useState<string | null>(null)
 
   useEffect(() => {
     // Initialize collection and ranking state
@@ -169,6 +170,44 @@ export default function ListPage() {
     setShowNewRankingForm(false)
     setError(null)
     fetchRankedHouses(currentCollection, newRankingName)
+  }
+
+  const handleRerank = async (houseId: string) => {
+    try {
+      setRerankingHouseId(houseId)
+      setError(null)
+      
+      const apiKey = localStorage.getItem('apiKey')
+      if (!apiKey) {
+        setError('API key not found. Please set it in localStorage.')
+        return
+      }
+
+      const response = await fetch('/api/rerank', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'x-user-id': 'default'
+        },
+        body: JSON.stringify({
+          houseId,
+          rankingName: currentRankingName
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to remove house from ranking')
+      }
+
+      // Refresh the ranked houses list
+      await fetchRankedHouses(currentCollection, currentRankingName)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while reranking')
+    } finally {
+      setRerankingHouseId(null)
+    }
   }
 
   if (loading) {
@@ -342,51 +381,74 @@ export default function ListPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {houses.map((house, index) => (
               <div
                 key={house.id}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex items-center space-x-4"
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
               >
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                    <span className="text-xl font-bold text-blue-600 dark:text-blue-300">
-                      {index + 1}
-                    </span>
+                <div className="relative">
+                  <div className="absolute top-2 left-2 z-10">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center shadow-lg">
+                      <span className="text-lg font-bold text-blue-600 dark:text-blue-300">
+                        {index + 1}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                
-                {house.image_url && (
-                  <div className="flex-shrink-0">
+                  {house.image_url ? (
                     <Image
                       src={house.image_url}
                       alt={house.title}
-                      width={80}
-                      height={80}
-                      className="rounded-lg object-cover"
+                      width={400}
+                      height={200}
+                      className="w-full h-48 object-cover"
                     />
-                  </div>
-                )}
+                  ) : (
+                    <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                      <span className="text-gray-500 dark:text-gray-400">No Image</span>
+                    </div>
+                  )}
+                </div>
                 
-                <div className="flex-1">
+                <div className="p-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                     {house.title}
                   </h3>
                   {house.description && (
-                    <p className="text-gray-600 dark:text-gray-300 mb-2">
+                    <p className="text-gray-600 dark:text-gray-300 mb-3 text-sm">
                       {house.description}
                     </p>
                   )}
-                  {house.listing_url && (
-                    <a
-                      href={house.listing_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 text-sm"
+                  
+                  <div className="flex items-center justify-between">
+                    {house.listing_url ? (
+                      <a
+                        href={house.listing_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        View Listing →
+                      </a>
+                    ) : (
+                      <div></div>
+                    )}
+                    
+                    <button
+                      onClick={() => handleRerank(house.id)}
+                      disabled={rerankingHouseId === house.id}
+                      className="bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white px-3 py-1 rounded text-sm transition-colors flex items-center gap-1"
                     >
-                      View Full Listing →
-                    </a>
-                  )}
+                      {rerankingHouseId === house.id ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Removing...
+                        </>
+                      ) : (
+                        'Rerank'
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

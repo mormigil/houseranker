@@ -588,127 +588,142 @@ export default function ManagePage() {
           </div>
         )}
 
-        <div className="grid gap-4">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Unranked Houses ({houses.filter(h => !h.is_ranked).length})
-              </h2>
-              <div className="space-y-3">
-                {houses
-                  .filter(h => !h.is_ranked)
-                  .map((house) => (
-                    <div
-                      key={house.id}
-                      className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center space-x-4"
-                    >
-                      {house.image_url && (
-                        <Image
-                          src={house.image_url}
-                          alt={house.title}
-                          width={120}
-                          height={120}
-                          className="rounded-lg object-cover"
-                        />
+        <div className="grid gap-6">
+          {/* Unranked Houses Section */}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Unranked Houses ({houses.filter(h => !h.is_ranked).length})
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {houses
+                .filter(h => !h.is_ranked)
+                .map((house) => (
+                  <div
+                    key={house.id}
+                    className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
+                  >
+                    {house.image_url ? (
+                      <Image
+                        src={house.image_url}
+                        alt={house.title}
+                        width={300}
+                        height={200}
+                        className="w-full h-40 object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-40 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                        <span className="text-gray-500 dark:text-gray-400">No Image</span>
+                      </div>
+                    )}
+                    
+                    <div className="p-3">
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">
+                        {house.title}
+                      </h3>
+                      {house.description && (
+                        <p className="text-xs text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
+                          {house.description}
+                        </p>
                       )}
                       
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {house.title}
-                        </h3>
-                        {house.description && (
-                          <p className="text-xs text-gray-600 dark:text-gray-300 break-words max-w-full overflow-wrap-anywhere">
-                            {house.description}
-                          </p>
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-col gap-1">
-                        {house.listing_url && (
+                      <div className="flex items-center justify-between">
+                        {house.listing_url ? (
                           <a
                             href={house.listing_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700 p-2 text-xs"
+                            className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                           >
-                            View Listing
+                            View Listing →
                           </a>
+                        ) : (
+                          <div></div>
                         )}
+                        
                         <button
                           onClick={() => handleDeleteHouse(house.id)}
-                          className="text-red-600 hover:text-red-700 p-2 text-xs"
+                          className="text-red-600 hover:text-red-700 text-xs font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                           Delete
                         </button>
                       </div>
                     </div>
-                  ))}
-              </div>
+                  </div>
+                ))}
             </div>
-            
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Ranked Houses ({houses.filter(h => h.is_ranked).length})
-              </h2>
-              <div className="space-y-3">
-                {houses
-                  .filter(h => h.is_ranked)
-                  .sort((a, b) => (a.rank || 0) - (b.rank || 0))
-                  .map((house) => (
-                    <div
-                      key={house.id}
-                      className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 flex items-center space-x-4"
-                    >
-                      <div className="flex-shrink-0">
-                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+          </div>
+
+          {/* Ranked Houses Section */}
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+              Ranked Houses ({houses.filter(h => h.is_ranked).length})
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {houses
+                .filter(h => h.is_ranked)
+                .sort((a, b) => (a.rank || 0) - (b.rank || 0))
+                .map((house) => (
+                  <div
+                    key={house.id}
+                    className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden"
+                  >
+                    <div className="relative">
+                      <div className="absolute top-2 left-2 z-10">
+                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center shadow-lg">
                           <span className="text-sm font-bold text-blue-600 dark:text-blue-300">
                             {(house.rank || 0) + 1}
                           </span>
                         </div>
                       </div>
-                      
-                      {house.image_url && (
+                      {house.image_url ? (
                         <Image
                           src={house.image_url}
                           alt={house.title}
-                          width={120}
-                          height={120}
-                          className="rounded-lg object-cover"
+                          width={300}
+                          height={200}
+                          className="w-full h-40 object-cover"
                         />
+                      ) : (
+                        <div className="w-full h-40 bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <span className="text-gray-500 dark:text-gray-400">No Image</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="p-3">
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">
+                        {house.title}
+                      </h3>
+                      {house.description && (
+                        <p className="text-xs text-gray-600 dark:text-gray-300 mb-3 line-clamp-2">
+                          {house.description}
+                        </p>
                       )}
                       
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {house.title}
-                        </h3>
-                        {house.description && (
-                          <p className="text-xs text-gray-600 dark:text-gray-300 break-words max-w-full overflow-wrap-anywhere">
-                            {house.description}
-                          </p>
-                        )}
-                      </div>
-                      
-                      <div className="flex flex-col gap-1">
-                        {house.listing_url && (
+                      <div className="flex items-center justify-between">
+                        {house.listing_url ? (
                           <a
                             href={house.listing_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-700 p-2 text-xs"
+                            className="text-blue-600 hover:text-blue-700 text-xs font-medium"
                           >
-                            View Listing
+                            View Listing →
                           </a>
+                        ) : (
+                          <div></div>
                         )}
+                        
                         <button
                           onClick={() => handleDeleteHouse(house.id)}
-                          className="text-red-600 hover:text-red-700 p-2 text-xs"
+                          className="text-red-600 hover:text-red-700 text-xs font-medium px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                           Delete
                         </button>
                       </div>
                     </div>
-                  ))}
-              </div>
+                  </div>
+                ))}
             </div>
           </div>
         </div>
